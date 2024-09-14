@@ -1,0 +1,7 @@
+
+
+# Ignore checkpoints
+*.pt
+
+# Ignore log files
+*.log
