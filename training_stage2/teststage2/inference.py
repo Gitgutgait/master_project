@@ -3,10 +3,20 @@ import argparse
 from vqvae_models import vqvae_model
 from network_components import MaskedTransformer
 import clip
+import os
+
 from PIL import Image
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from teststage2 import parallel_decode
+
+
+
+from utils import helper
+from utils import visualization
+from utils import experimenter
 
 # Load pre-trained CLIP models based on training_stage2.py settings
 def get_clip_model(args):
@@ -23,6 +33,8 @@ def get_clip_model(args):
         args.cond_emb_dim = 512
 
     return clip_model, clip_preprocess
+
+
 
 # Load the VQ-VAE and MaskedTransformer from checkpoints
 def load_models(args):
@@ -85,6 +97,48 @@ def visualize_3d_shape(shape):
     ax.voxels(shape.squeeze().cpu().numpy(), edgecolor='k')
     plt.show()
 
+def voxel_save(voxels, text_name, out_file=None, transpose=True, show=False):
+
+    # Use numpy
+    voxels = np.asarray(voxels)
+    # Create plot
+    #fig = plt.figure()
+    fig = plt.figure(figsize=(40,20))
+    
+    ax = fig.add_subplot(111, projection=Axes3D.name)
+    if transpose == True:
+        voxels = voxels.transpose(2, 0, 1)
+    #else:
+        #voxels = voxels.transpose(2, 0, 1)
+    
+
+    ax.voxels(voxels, edgecolor='k', facecolors='coral', linewidth=0.5)
+    ax.set_xlabel('Z')
+    ax.set_ylabel('X')
+    ax.set_zlabel('Y')
+    # Hide grid lines
+    plt.grid(False)
+    plt.axis('off')
+    
+    if text_name != None:
+        plt.title(text_name, {'fontsize':30}, y=0.15)
+    #plt.text(15, -0.01, "Correlation Graph between Citation & Favorite Count")
+
+    ax.view_init(elev=30, azim=45)
+
+    if out_file is not None:
+        plt.axis('off')
+        plt.savefig(out_file)
+    if show:
+        plt.show()
+    plt.close(fig)
+
+def save_voxel_images(voxel_in,file_name, save_path):
+    out_file = os.path.join(save_path, file_name + "_" + str(voxel_num) + ".png")
+    voxel_save(voxel_in, None, out_file=out_file)
+    voxel_num = voxel_num + 1
+            
+
 # Main inference function
 def inference(args):
     # Load models
@@ -108,18 +162,23 @@ def inference(args):
     # Visualize the reconstructed 3D shape
     visualize_3d_shape(reconstructed_3d_shape)
 
+    save_voxel_images(vqvae, transformer, clip_model, args, args.save_path, resolution=64)
+
+
 # Command-line arguments for inference 
 
     # Path to the input sketch
 def parse_args():
     parser = argparse.ArgumentParser(description="Sketch-to-3D Inference")
-    parser.add_argument('--sketch_path', type=str, default='/home/lk/airplane.png', help='Path to the input sketch image')
-    parser.add_argument('--vqvae_checkpoint', type=str, default='/home/lk/vqvae_3d_v2/checkpoints/epoch_300.pt')
-    parser.add_argument('--transformer_checkpoint', type=str, default='/home/lk/teststage2/checkpoint/View1/best_transformer.pt', help='Path to the MaskedTransformer checkpoint')
+    parser.add_argument('--sketch_path', type=str, default='/home/lk/gitversion/training_stage2/teststage2/sketches/airplane.png', help='Path to the input sketch image')
+    parser.add_argument('--vqvae_checkpoint', type=str, default='/home/lk/gitversion/training_stage1/vqvae_3d_v2/checkpoints/epoch_300.pt')
+    parser.add_argument('--transformer_checkpoint', type=str, default='/home/lk/gitversion/training_stage2/teststage2/checkpoint/View1/best_transformer.pt', help='Path to the MaskedTransformer checkpoint')
     parser.add_argument('--clip_model_type', type=str, default='ViT-B/32', help='CLIP model type: ViT-B/32, ViT-B/16, or RN50x16')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use for inference')
     parser.add_argument('--batch_size', type=int, default=1, help='Batch size for inference')
     parser.add_argument('--num_iterations', type=int, default=12, help='Number of decoding iterations')
+    parser.add_argument('--save_path', type=str, default='/home/lk/gitversion/training_stage2/teststage2/shapes', help='output path')
+
 
     parser.add_argument('--hidden_dim', type=int, default=128, help='Hidden dimension of the transformer')
     parser.add_argument('--num_heads', type=int, default=2, help='Number of attention heads')
@@ -129,6 +188,7 @@ def parse_args():
     parser.add_argument('--max_position_embeddings', type=int, default=512, help='Maximum position embeddings')
     parser.add_argument('--initializer_range', type=float, default=0.02, help='Initializer range for weights')
     parser.add_argument('--dropout_rate', type=float, default=0.1, help='Dropout rate')
+    
 
     args = parser.parse_args()
     return args

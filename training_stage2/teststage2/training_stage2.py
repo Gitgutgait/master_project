@@ -15,6 +15,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import torch
 from torchvision import transforms
 from torch.optim import lr_scheduler
+
 import torch.nn.functional as F
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -272,8 +273,8 @@ nohup python training_stage2.py --num_views 1 --gpu 1 --checkpoint_dir checkpoin
 
             car, airplane
 
-            bench, car, rifle, chair, airplane, table, watercraft
-            02828884 02958343 04090263 03001627 02691156 04379243 04530566
+            bench, car, rifle, airplan, watercraft
+            02828884 02958343 04090263 02691156 04530566
 
             
                 nohup python script.py > script.log 2>&1 &
@@ -344,6 +345,15 @@ nohup python training_stage2.py --num_views 1 --gpu 1 --checkpoint_dir checkpoin
 
      # Optimizer and Scheduler
     optimizer = torch.optim.Adam(transformer.parameters(), lr=args.lr)
+    
+    # we added this scheduler
+    scheduler = lr_scheduler.ReduceLROnPlateau(
+            optimizer, 
+            mode='min',       # Because we're minimizing the loss
+            factor=0.5,       # Reduce the learning rate by half
+            patience=10,      # Wait for 10 epochs without improvement
+            min_lr=1e-6,      # Minimum learning rate to prevent it from going too low
+        )
 
  # Compute condition embeddings
     logging.info("Computing train embeddings...")
@@ -421,7 +431,9 @@ nohup python training_stage2.py --num_views 1 --gpu 1 --checkpoint_dir checkpoin
             }, checkpoint_path)
 
         # Step the scheduler
-        #scheduler.step()
+        scheduler.step()
+
+
 
 
 if __name__ == "__main__":
